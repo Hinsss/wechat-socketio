@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<meta name="viewport" content="width=device-width,height=device-height,inital-scale=1.0,maximum-scale=1.0,user-scalable=no;">
+		<link rel="stylesheet" type="text/css" href="css/mobile_style.css"/>
+		<link rel="stylesheet" type="text/css" href="css/bootstrap.css"/>
+		<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"/>
+		<script src="js/vue.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/socket.io.js" type="text/javascript" charset="utf-8"></script>
+	</head>
+	<body>
+		<div id="app">
+			<div class="userheader">
+				<div class="user">
+					<div class="userImg">
+						<img :src="user.imgUrl" @click='edit("修改个人头像：","imgUrl")'/>
+					</div>
+					<div class="userMain">
+						<div class="nickname" @click='edit("修改个人昵称：","name")'>昵称：{{user.name}}</div>
+						<p class="shuoshuo" @click='edit("修改个人说说：","details")'>{{user.details}}</p>
+					</div>
+				</div>
+				<button type="button" class="btn btn-success lyjl" @click="chatRecord">查看聊天记录</button>
+				<button type="button" class="btn btn-info exitltjl" @click="exitRecord">退出聊天记录</button>
+				<button type="button" class="btn btn-danger add" @click="addFriend">添加新的好友</button>
+			</div>
+			<div class="main">
+				<!--在线好友、群列表-->
+				<div class="headerList success">
+					<div class="headerItem" v-for='item in headerList' @click='choose(item.sid,item.isRoom)' v-if='item.sid != sid'>
+						<div class="headerImg">
+							<img  :src="item.imgUrl"/>
+							<div v-show="isActive" v-if='item.sid != "python"&&item.sid!="html5"' class="tishidh"></div>
+						</div>
+						<div class="nickname">
+							<p>{{item.name}}</p>
+						</div>
+					</div>
+					
+				</div>
+				<div class="chatInfo" v-show="recordone">
+					<!--标识现在跟谁在聊天当中headerList[currentChat].name-->
+					<div class="chatTitle">** {{user.name}} ** 与 ** {{currentChat ? headerList[currentChat].name : ""}} ** 聊天中</div>
+					<!--聊天列表-->
+					<div class="chatContent">
+						<!--聊天显示-->
+						<!--<div class="chatItem" v-for='x in chatList'>-->
+						<div class="chatItem" v-for='x in alluserchat[currentChat]'>
+							<div class="himg">
+								<img :src="headerList[x.srcId].imgUrl"/>
+								<span>&nbsp;&nbsp;&nbsp;&nbsp;{{headerList[x.srcId].name}} : {{x.content}}</span>
+							</div>
+							<hr />
+						</div>
+					</div>
+					<!--输入框-->
+					<div class="chatInput" style="position: fixed;bottom: 30px;">
+						<input type="text" v-model='sendContent' name="chat" id="chat" value="" class="form-control" placeholder="Text input"/>
+						<button @click='sendChat' type="button" class="btn btn-success">发送</button>
+					</div>
+				</div>
+				<!--聊天记录内容查询-->
+				<div class="chatInfo"  v-show="record">
+					<div class="chatContent">
+						<div class="chatItem" v-for="x in chatSave">
+							<div>{{headerList[x.destId].name}}</div>
+								<div class="himg"  >
+									
+									<img :src="headerList[x.srcId].imgUrl"/>
+									<span>{{headerList[x.srcId].name}} : {{x.content}}</span>
+								</div>
+								<hr />
+						</div>
+					</div>
+				</div>
+				<!--这是编辑的弹框-->
+				<div class="chatInfo" v-show='isEdit'>
+					<div style="margin: auto auto;">{{editInfo}}</div>
+					<div class="chatInput" style="width: 100%;margin: 10px 0;padding: 0;">
+						<input type="text" name="" v-model='editValue' id="" value="" class="form-control" placeholder="Text Input"/>
+					</div>
+					<button @click='completeEdit' class="btn btn-danger">确定修改</button>
+						<button @click='completeEditback' class="btn btn-info">退出修改</button>
+				</div>
+			</div>
+			
+			
+		</div>
+		<script type="text/javascript">
+			var socket = io('localhost:8000');
+			var app = new Vue({
+				el:'#app',
+				data:{
+					sid:'',//自己的sid
+					headerList:{},//好友、群列表
+					currentChat:'',//标识自己在跟谁、群聊天
+					chatList:[],//聊天的内容
+					sendContent:'',//发送的内容
+					isRoom:false,//表面现在是否在群聊
+					user:'',
+					isEdit:false,
+					editValue:'',
+					editInfo:'',
+					editAttrValue:'',
+					chatSave:[],
+					record:false,
+					recordone:true,
+					alluserchat:{},
+					isActive:false
+				},
+				methods:{
+					choose:function(sid,isRoom){
+//						console.log(sid)//python
+//						console.log(this.isRoom)//false
+						if(this.isRoom){
+							socket.emit('leaveRoom',{'room':this.currentChat})
+						}
+						this.currentChat = sid //python
+						this.chatList=[]
+						if(isRoom){//判断选择的是群聊，那么就要告诉服务器，我要进群
+							socket.emit('enterRoom',{'room':sid})
+							this.isRoom = true
+						}
+						app.isActive = false
+					},
+					sendChat:function(sid){
+//						console.log({'content':this.sendContent,'destId':this.currentChat,'srcId':this.sid})
+						socket.emit('sendMessage',{'content':this.sendContent,'destId':this.currentChat,'srcId':this.sid})
+						
+						this.sendContent = ''
+						
+						
+					},
+					edit:function(editInfo,attrValue){
+						this.editInfo = editInfo //弹框的描述需要修改
+						this.editAttrValue = attrValue //现在编辑的是什么属性
+						this.isEdit = true //将弹框进行显示
+						this.recordone = false
+						this.record = false
+					},
+					completeEdit:function(){
+						socket.emit('editUser',{'attrValue':this.editAttrValue,'value':this.editValue})//发送消息（修改用户的什么属性，以及修改值）给到我们的后端
+						this.editValue = ''
+						this.isEdit = false
+						this.recordone = true
+					},
+					completeEditback:function(){
+						this.isEdit = false
+						this.recordone = true
+					},
+					chatRecord:function(){
+						this.record = true
+						this.recordone = false
+					},
+					exitRecord:function(){
+						this.record = false
+						this.recordone = true
+					},
+					addFriend:function(){
+						window.open("mobile_wechat.html");  
+					}
+				}
+			})
+			
+			
+			socket.on('connect', function(){
+				console.log('连接成功')
+				
+			});
+			
+			socket.on('updateClients', function(content){
+				app.headerList = content //更新在线列表
+				for (item in app.headerList) {
+					if(!app.alluserchat.hasOwnProperty(item)){
+						app.alluserchat[item]=[]
+					}
+				}
+			});
+			
+			socket.on('reply', function(data){
+				console.log(data)
+				app.chatSave.push(data)
+//				for (i in app.chatSave) {
+//					socket.emit('messageContent',
+//					{'userName':app.headerList[app.chatSave[i]['srcId']].name,'content':app.chatSave[i]['content'],'friendName':app.headerList[app.chatSave[i]['destId']].name})
+//				}
+				//判断一下发给自己的是不是正在聊天的对象又或者是系统发给自己的内容
+//				if (data['destId'] == app.currentChat || data['srcId'] == app.currentChat){
+//					app.chatList.push(data)
+//				}
+				if (data['srcId'] == app.sid){
+					app.alluserchat[data['destId']].push(data)
+					app.$forceUpdate()
+					console.log(app.alluserchat)
+				}else{
+					app.alluserchat[data['srcId']].push(data)
+				}
+				
+				for (i in app.alluserchat) {
+//					console.log(app.alluserchat[i])
+					
+					if(app.alluserchat[i].length>0){
+//						console.log(app.alluserchat[i][0])
+						for(j in app.alluserchat[i]){
+							app.isActive = false
+							console.log(app.alluserchat[i][j])
+//							if(!app.chatSave.hasOwnProperty(app.alluserchat[i][j])){
+//								app.chatSave.push(app.alluserchat[i][j])
+//							}
+//							socket.emit('messageContent',
+//							{'userName':app.headerList[app.alluserchat[i][j]['srcId']].name,'content':app.alluserchat[i][j]['content'],'friendName':app.headerList[app.alluserchat[i][j]['destId']].name})
+							if(app.alluserchat[i][j]['srcId']!=app.sid){
+								app.isActive = true
+//								console.log(app.isActive)
+							}
+							
+						}
+						
+					}
+				}
+				app.$forceUpdate()
+				
+			});
+			socket.on('emitID', function(data){
+				app.user = data //更新当前的用户信息
+				app.sid = data.sid //更新当前的sid
+			});
+			
+			socket.on('disconnect', function(){
+				
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>登录</title>
+		<meta name="viewport" content="width=1004,user-scalable=no" />
+		<script type="text/javascript" src="js/jquery-3.3.1.js"></script>
+		<link rel="stylesheet" type="text/css" href="css/denglu.css"/>
+		<link rel="stylesheet" type="text/css" href="css/swiper.css"/>
+		<link rel="stylesheet" type="text/css" href="css/animate.css"/>
+		
+		<script type="text/javascript" src="js/vue.js" ></script>
+		<script type="text/javascript" src="js/socket.io.js" ></script>
+	</head>
+	<body>
+	<div id="app">
+		<div class="donghua" v-show="isdonghua">
+			
+		</div>
+		
+		<!--登录头-->
+		<div class="dl">登录</div>
+		<div class="dl1">WeChat</div>
+		<div class="shuru one">
+			<input type="text" name="sf" id="sf" value="" v-model="name" placeholder="请输入登录名"/>
+
+		</div>
+		<div class="shuru two">
+			<input type="text" name="dh" id="dh" value="" v-model="pd" placeholder="请输入密码"/>
+
+		</div>
+		
+		<button @click="login" class="fsyzm">登录</button>
+		
+		<div @click="xieyi" class="xieyi">
+			<input type="radio" name="an" id="an" value=""  />
+			<label  for="agree">注册</label>
+		</div>
+		
+		
+		<!--注册页面-->
+		<div class="back" v-show="isback">
+			<div class="dl">注册</div>
+			<div class="dl1">WeChat</div>
+			<div class="photo"></div>
+			<div class="shuru one">
+				<input type="text" name="sf" id="sf" value="" v-model="zcname" placeholder="请输入你要注册的登录名"/>
+			</div>
+			<div class="shuru two">
+				<input type="text" name="dh" id="dh" value="" v-model="zcpd" placeholder="请输入你的注册密码"/>
+			</div>
+			
+			<button @click="zc" class="fsyzm">注册</button>
+			
+		</div>
+		
+	</div>
+		
+		
+		<script type="text/javascript">
+			var socket = io('localhost:8000');
+			var app = new Vue({
+				el:'#app',
+				data:{
+					isback:false,
+					name:'',
+					pd:'',
+					zcname:'',
+					zcpd:'',
+					user:'',
+					islogin:false,
+					isdonghua:true
+					},
+				methods:{
+					//	去协议页面函数
+					xieyi:function(){
+						this.isback = true
+						this.name = ''
+						this.pd = ''
+					},
+					zc:function(){
+						if (this.zcname && this.zcpd) {
+							socket.emit('login',{'name':this.zcname,'password':this.zcpd})
+							this.zcname = ''
+							this.zcpd = ''
+							app.$forceUpdate()
+							alert('注册成功了哦，请登录你的账号')
+							this.isback=false
+							
+						}else{
+							alert('没有注册成功，请认真填好你的名字和密码！')
+						}
+						
+						
+					},
+					login:function(){
+						for(i in this.user){
+							if (this.user[i][0]==this.name&&this.user[i][2]==this.pd) {
+								app.islogin = true
+							}
+						}
+						if (app.islogin) {
+							alert('恭喜登录成功了')
+							socket.emit('sendUser',this.name)
+							app.islogin = false
+							location.href = 'mobile_wechat.html'
+						}else{
+							alert('你的账号输入有误，请重新输入')
+							this.name = ''
+							this.pd = ''
+						}
+					},
+					
+				}
+			})
+			
+			
+			t = setTimeout(function(){
+				app.isdonghua = false
+				console.log('动画停止')
+			},2500)
+				
+
+//			socket.on('connect', function(){
+//				console.log('连接成功')
+//				
+//			});
+			socket.on('login',function(user){
+							app.user = user
+//							console.log(user)
+						});
+
+			socket.on('disconnect', function(){
+				clearTimeout(t)
+			});
+			
+		
+		</script>
+
+	</body>
+</html>
